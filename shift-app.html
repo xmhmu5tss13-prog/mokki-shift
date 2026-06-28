@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>シフト希望入力 | Mökki</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#1a1612;--surface:#242018;--surface2:#2e2820;--border:#3d3528;
+  --accent:#c8975a;--accent-soft:rgba(200,151,90,0.15);--accent-glow:rgba(200,151,90,0.08);
+  --text:#e8ddd0;--text-muted:#8a7d6e;--text-dim:#5a5048;
+  --unavail:#3a2020;--unavail-border:#6b3030;
+  --avail:rgba(200,151,90,0.25);--avail-border:#c8975a;
+  --closed:#1e1e1a;--closed-text:#3a3a32;
+  --cell-empty:#1e1c18;--cell-off:#141210;--cell-wish:#c8a020;--cell-confirmed:#3a7a4a;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:14px;min-height:100vh;padding-bottom:70px;}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 20px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'DM Mono',monospace;font-size:18px;letter-spacing:.15em;color:var(--accent);}
+.period-badge{font-size:11px;color:var(--text-muted);text-align:right;line-height:1.4;}
+.screen{display:none;padding:24px 16px;max-width:480px;margin:0 auto;}
+.screen.active{display:block;}
+.admin-screen{display:none;padding:20px 16px;max-width:100%;margin:0 auto;}
+.admin-screen.active{display:block;}
+h2{font-size:16px;font-weight:500;margin-bottom:6px;color:var(--text);}
+.sub{font-size:12px;color:var(--text-muted);margin-bottom:24px;line-height:1.6;}
+.period-banner{background:var(--accent-glow);border:1px solid rgba(200,151,90,0.2);border-radius:12px;padding:14px 16px;margin-bottom:24px;}
+.pb-label{font-size:10px;color:var(--text-muted);letter-spacing:.1em;margin-bottom:4px;}
+.pb-value{font-family:'DM Mono',monospace;font-size:15px;color:var(--accent);font-weight:500;}
+.pb-deadline{font-size:11px;color:var(--text-muted);margin-top:4px;}
+.locked-banner{background:#2a2018;border:1px solid #5a4020;border-radius:12px;padding:14px 16px;margin-bottom:24px;font-size:12px;color:#a08050;line-height:1.6;}
+.section-label{font-size:11px;color:var(--text-muted);letter-spacing:.08em;margin-bottom:10px;margin-top:20px;display:flex;align-items:center;gap:8px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:15px;padding:14px 16px;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a7d6e' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;cursor:pointer;margin-bottom:24px;}
+select:focus{outline:none;border-color:var(--accent);}
+.btn-primary{width:100%;background:var(--accent);border:none;border-radius:12px;color:#1a1612;font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;padding:16px;cursor:pointer;transition:opacity .15s;letter-spacing:.05em;}
+.btn-primary:active{opacity:.8;}
+.btn-primary:disabled{opacity:.3;cursor:default;}
+.btn-secondary{width:100%;background:transparent;border:1px solid var(--border);border-radius:12px;color:var(--text-muted);font-family:'Noto Sans JP',sans-serif;font-size:14px;padding:14px;cursor:pointer;margin-top:10px;}
+.admin-link{text-align:center;margin-top:30px;font-size:12px;}
+.admin-link a{color:var(--text-dim);text-decoration:none;border-bottom:1px solid var(--border);padding-bottom:1px;cursor:pointer;}
+/* Day cards */
+.day-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;}
+.day-card.is-unavail{border-color:var(--unavail-border);background:var(--unavail);}
+.day-card.has-range{border-color:var(--avail-border);}
+.day-card.is-allday{border-color:var(--avail-border);background:rgba(200,151,90,0.06);}
+.day-card.is-closed{background:var(--closed);border-color:#2e2e28;opacity:.5;pointer-events:none;}
+.day-header{display:flex;align-items:center;padding:12px 14px;gap:10px;cursor:pointer;user-select:none;-webkit-user-select:none;}
+.day-label{flex:1;}
+.day-num{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--text);line-height:1;}
+.day-card.is-closed .day-num{color:var(--closed-text);}
+.day-name{font-size:11px;color:var(--text-muted);margin-top:2px;}
+.day-card.is-closed .day-name{color:var(--closed-text);}
+.day-name.sat{color:#5a8ab0;}
+.day-name.sun,.day-name.hol{color:#a05a5a;}
+.day-status{font-size:12px;color:var(--text-dim);}
+.day-status.set{color:var(--accent);}
+.day-status.unavail{color:#a05a5a;}
+.day-status.allday{color:var(--accent);}
+.day-status.closed{color:var(--closed-text);font-size:11px;}
+.day-actions{display:flex;gap:6px;align-items:center;}
+.allday-btn{background:var(--accent-soft);border:1px solid rgba(200,151,90,0.3);border-radius:8px;color:var(--accent);font-size:11px;padding:5px 10px;cursor:pointer;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;}
+.allday-btn.on{background:var(--accent);color:#1a1612;border-color:var(--accent);}
+.unavail-toggle{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:11px;padding:5px 10px;cursor:pointer;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;}
+.day-card.is-unavail .unavail-toggle{border-color:var(--unavail-border);color:#a05a5a;}
+/* Timeline */
+.timeline-wrap{padding:0 14px 14px;display:none;}
+.timeline-wrap.open{display:block;}
+.special-hours-note{font-size:10px;color:#8ab05a;margin-bottom:6px;display:flex;align-items:center;gap:4px;}
+.time-labels{display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);margin-bottom:4px;padding:0 1px;}
+.timeline-track{position:relative;height:44px;background:var(--surface2);border-radius:8px;overflow:hidden;cursor:pointer;touch-action:none;}
+.timeline-hours{display:flex;height:100%;}
+.hour-cell{flex:1;border-right:1px solid var(--border);height:100%;}
+.hour-cell:last-child{border-right:none;}
+.timeline-selection{position:absolute;top:0;height:100%;background:var(--avail);border:1.5px solid var(--avail-border);border-radius:6px;pointer-events:none;display:none;}
+.handle{position:absolute;top:50%;transform:translateY(-50%);width:12px;height:28px;background:var(--accent);border-radius:4px;cursor:ew-resize;pointer-events:all;display:flex;align-items:center;justify-content:center;}
+.handle::after{content:'';width:2px;height:12px;background:rgba(26,22,18,0.4);border-radius:1px;}
+.handle-left{left:-6px;}
+.handle-right{right:-6px;}
+.time-display{text-align:center;font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);margin-top:8px;height:18px;}
+.clear-btn{display:block;width:100%;background:transparent;border:none;color:var(--text-dim);font-size:11px;text-align:center;margin-top:6px;cursor:pointer;padding:4px;font-family:'Noto Sans JP',sans-serif;}
+.note-field{margin-top:10px;}
+.note-field textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:13px;padding:10px 12px;resize:none;height:60px;line-height:1.5;}
+.note-field textarea::placeholder{color:var(--text-dim);}
+.note-field textarea:focus{outline:none;border-color:var(--accent);}
+.note-label{font-size:11px;color:var(--text-dim);margin-bottom:5px;}
+/* Submit bar */
+.submit-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;z-index:100;display:none;}
+.submit-inner{max-width:480px;margin:0 auto;display:flex;gap:10px;align-items:center;}
+.submit-count{font-size:12px;color:var(--text-muted);white-space:nowrap;}
+.submit-count strong{color:var(--accent);}
+.complete-section{margin-top:24px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:14px;text-align:center;}
+.complete-section p{font-size:12px;color:var(--text-muted);margin-bottom:12px;line-height:1.6;}
+/* Confirm */
+.confirm-list{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px;}
+.confirm-item{display:flex;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;}
+.confirm-item:last-child{border-bottom:none;}
+.confirm-date{font-family:'DM Mono',monospace;font-size:13px;color:var(--text-muted);width:60px;flex-shrink:0;}
+.confirm-val{font-size:13px;color:var(--text);flex:1;}
+.confirm-val.unavail{color:#a05a5a;}
+.confirm-note{font-size:11px;color:var(--text-muted);font-style:italic;margin-top:2px;}
+/* Done */
+.done-icon{width:64px;height:64px;background:var(--accent-soft);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px;}
+#doneScreen{text-align:center;padding-top:60px;}
+#doneScreen h2{font-size:20px;margin-bottom:10px;}
+/* Admin nav */
+.admin-nav{display:flex;gap:6px;margin-top:12px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:14px;flex-wrap:wrap;}
+.admin-nav-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:12px;padding:7px 14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.admin-nav-btn.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+/* Submissions */
+.admin-tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;}
+.admin-tab{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:12px;padding:7px 14px;cursor:pointer;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;}
+.admin-tab.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+.submission-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;}
+.sub-header{display:flex;justify-content:space-between;margin-bottom:10px;align-items:center;}
+.sub-name{font-weight:500;color:var(--accent);font-size:15px;}
+.sub-meta{font-size:11px;color:var(--text-muted);}
+.sub-grid{display:flex;flex-wrap:wrap;gap:5px;}
+.sub-chip{background:var(--surface2);border-radius:6px;padding:4px 8px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text);border:1px solid var(--border);}
+.sub-chip.unavail{background:var(--unavail);border-color:var(--unavail-border);color:#a05a5a;}
+.sub-chip.avail{background:var(--accent-glow);border-color:rgba(200,151,90,0.3);color:var(--accent);}
+.empty-state{text-align:center;padding:40px 20px;color:var(--text-dim);font-size:13px;}
+.delete-btn{background:transparent;border:1px solid var(--unavail-border);border-radius:6px;color:#a05a5a;font-size:11px;padding:4px 10px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+/* Settings forms */
+.settings-form{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;}
+.settings-form h3{font-size:13px;color:var(--text-muted);margin-bottom:14px;}
+.form-row{display:flex;gap:8px;margin-bottom:10px;align-items:center;}
+.form-row label{font-size:11px;color:var(--text-dim);white-space:nowrap;min-width:50px;}
+.form-row input[type="date"],.form-row input[type="number"],.form-row input[type="text"]{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;flex:1;}
+.form-row input[type="text"]{font-family:'Noto Sans JP',sans-serif;}
+.form-row input[type="number"]{width:65px;flex:none;}
+.form-row input:focus{outline:none;border-color:var(--accent);}
+.form-row .sep{color:var(--text-dim);font-size:12px;white-space:nowrap;}
+.add-btn{background:var(--accent-soft);border:1px solid rgba(200,151,90,0.3);border-radius:8px;color:var(--accent);font-family:'Noto Sans JP',sans-serif;font-size:13px;padding:10px 16px;cursor:pointer;width:100%;margin-top:4px;}
+/* Setting items */
+.setting-item{display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;gap:10px;}
+.setting-item-info{flex:1;}
+.setting-item-main{font-family:'DM Mono',monospace;font-size:12px;color:var(--text);}
+.setting-item-sub{font-size:11px;margin-top:2px;}
+.setting-item-sub.green{color:#8ab05a;}
+.setting-item-sub.red{color:#a05a5a;}
+.setting-item-actions{display:flex;gap:6px;}
+.edit-btn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);font-size:11px;padding:4px 10px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+/* Staff management */
+.staff-chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+.staff-chip{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;}
+.staff-chip-name{font-size:13px;color:var(--text);}
+.staff-chip-del{background:transparent;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;line-height:1;padding:0 2px;}
+.staff-chip-del:hover{color:#a05a5a;}
+/* Shift view */
+.shift-view-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.shift-table{border-collapse:collapse;min-width:max-content;font-size:11px;}
+.shift-table th,.shift-table td{border:1px solid var(--border);padding:0;}
+.shift-table th{background:var(--surface2);color:var(--text-muted);font-weight:400;white-space:nowrap;padding:4px 6px;font-family:'DM Mono',monospace;}
+.th-date{background:var(--surface2);color:var(--text);font-weight:500;padding:6px 10px;min-width:110px;vertical-align:top;}
+.th-staff{width:32px;min-width:32px;text-align:center;font-size:10px;color:var(--accent);background:var(--surface);padding:4px 2px;}
+.cell{width:28px;min-width:28px;height:28px;cursor:default;}
+.cell.off{background:var(--cell-off);}
+.cell.empty{background:var(--cell-empty);}
+.cell.wish{background:var(--cell-wish);cursor:pointer;}
+.cell.wish:hover{filter:brightness(1.15);}
+.cell.confirmed{background:var(--cell-confirmed);cursor:pointer;}
+.cell.confirmed:hover{filter:brightness(1.2);}
+.date-row-header{background:var(--surface);color:var(--text);font-size:12px;font-weight:500;padding:6px 10px;border-top:2px solid var(--border);}
+.shift-memo-bar{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;}
+.shift-memo-bar label{font-size:11px;color:var(--text-muted);white-space:nowrap;margin-top:3px;}
+.shift-memo-bar textarea{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:12px;padding:8px 10px;resize:none;height:60px;line-height:1.5;}
+.shift-memo-bar textarea:focus{outline:none;border-color:var(--accent);}
+.shift-legend{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);}
+.legend-dot{width:14px;height:14px;border-radius:3px;}
+/* Period tabs for shift */
+.shift-period-tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;}
+.shift-period-tab{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:12px;padding:7px 14px;cursor:pointer;white-space:nowrap;font-family:'Noto Sans JP',sans-serif;}
+.shift-period-tab.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+/* pw */
+.pw-wrap{max-width:300px;margin:60px auto 0;text-align:center;}
+.pw-wrap input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:16px;padding:14px;text-align:center;letter-spacing:.2em;margin-bottom:12px;font-family:'DM Mono',monospace;}
+.pw-wrap input:focus{outline:none;border-color:var(--accent);}
+.pw-error{color:#a05a5a;font-size:12px;margin-top:8px;display:none;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">MÖKKI</div>
+  <div class="period-badge" id="periodBadge">シフト希望入力</div>
+</header>
+
+<!-- Setup -->
+<div class="screen active" id="setupScreen">
+  <h2>シフト希望を入力</h2>
+  <p class="sub">名前を選んで希望を送信してください</p>
+  <div class="period-banner">
+    <div class="pb-label">対象期間</div>
+    <div class="pb-value" id="pbValue">—</div>
+    <div class="pb-deadline" id="pbDeadline"></div>
+  </div>
+  <div id="lockedBanner" class="locked-banner" style="display:none">⚠️ 提出期限を過ぎたため、現在は入力できません。</div>
+  <div class="section-label">名前</div>
+  <select id="nameSelect"><option value="">選択してください</option></select>
+  <button class="btn-primary" id="startBtn" disabled onclick="startInput()">入力を始める →</button>
+  <div class="admin-link"><a onclick="showAdminLogin()">管理者ページ</a></div>
+</div>
+
+<!-- Main Input -->
+<div class="screen" id="mainScreen">
+  <div style="margin-bottom:16px">
+    <h2 id="mainTitle">希望を入力</h2>
+    <p class="sub" style="margin-bottom:0" id="mainSub">タップで時間を設定 / 「終日OK」または「×休み」をタップ</p>
+  </div>
+  <div id="daysList"></div>
+  <div class="complete-section">
+    <p>入力が終わったら送信してください。<br>期限内であれば後から再送信して修正できます。</p>
+    <button class="btn-primary" onclick="showConfirm()">内容を確認する →</button>
+    <button class="btn-secondary" onclick="showSetup()">ホームに戻る</button>
+  </div>
+  <div style="height:20px"></div>
+</div>
+
+<div class="submit-bar" id="submitBar">
+  <div class="submit-inner">
+    <div class="submit-count" id="submitCount"></div>
+    <button class="btn-primary" style="flex:1" onclick="showConfirm()">確認する →</button>
+  </div>
+</div>
+
+<!-- Confirm -->
+<div class="screen" id="confirmScreen">
+  <h2>内容を確認</h2>
+  <p class="sub">この内容で送信しますか？</p>
+  <div class="confirm-list" id="confirmList"></div>
+  <button class="btn-primary" onclick="submitData()">送信して完了 ✓</button>
+  <button class="btn-secondary" onclick="backToMain()">← 戻って修正する</button>
+</div>
+
+<!-- Done -->
+<div class="screen" id="doneScreen">
+  <div class="done-icon">🌿</div>
+  <h2>送信完了！</h2>
+  <p class="sub" id="doneMsg">ありがとうございます！<br>シフトが確定したらお知らせします。</p>
+  <button class="btn-primary" style="margin-top:30px" onclick="showSetup()">ホームに戻る</button>
+</div>
+
+<!-- Admin Login -->
+<div class="admin-screen" id="adminLoginScreen">
+  <div class="pw-wrap">
+    <h2 style="margin-bottom:20px">管理者ログイン</h2>
+    <input type="password" id="pwInput" placeholder="••••" maxlength="8" onkeydown="if(event.key==='Enter')checkPw()">
+    <button class="btn-primary" onclick="checkPw()">入る</button>
+    <div class="pw-error" id="pwError">パスワードが違います</div>
+    <div style="margin-top:16px"><button class="btn-secondary" onclick="showSetup()">← 戻る</button></div>
+  </div>
+</div>
+
+<!-- Admin Main -->
+<div class="admin-screen" id="adminScreen">
+  <h2>管理者ページ</h2>
+  <div class="admin-nav">
+    <button class="admin-nav-btn active" id="navShift" onclick="switchAdminTab('shift')">シフト確認</button>
+    <button class="admin-nav-btn" id="navSubmissions" onclick="switchAdminTab('submissions')">提出一覧</button>
+    <button class="admin-nav-btn" id="navStaff" onclick="switchAdminTab('staff')">スタッフ管理</button>
+    <button class="admin-nav-btn" id="navSpecial" onclick="switchAdminTab('special')">特別営業時間</button>
+    <button class="admin-nav-btn" id="navClosed" onclick="switchAdminTab('closed')">定休日・休業日</button>
+  </div>
+
+  <!-- Shift view -->
+  <div id="tabShift">
+    <div class="shift-memo-bar">
+      <label>メモ</label>
+      <textarea id="shiftMemo" placeholder="シフト全体のメモ..." onchange="saveShiftMemo()"></textarea>
+    </div>
+    <div class="shift-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--cell-wish)"></div>希望あり</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--cell-confirmed)"></div>シフト確定</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--cell-empty)"></div>希望なし</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--cell-off)"></div>営業時間外</div>
+    </div>
+    <div class="shift-period-tabs" id="shiftPeriodTabs"></div>
+    <div class="shift-view-wrap">
+      <div id="shiftTableWrap"></div>
+    </div>
+  </div>
+
+  <!-- Submissions -->
+  <div id="tabSubmissions" style="display:none">
+    <div class="admin-tabs" id="adminTabs"></div>
+    <div id="adminContent"></div>
+  </div>
+
+  <!-- Staff -->
+  <div id="tabStaff" style="display:none">
+    <div class="settings-form">
+      <h3>スタッフを追加</h3>
+      <div class="form-row">
+        <label>名前</label>
+        <input type="text" id="staffNameInput" placeholder="例：H" maxlength="20">
+        <button class="add-btn" style="width:auto;margin:0;padding:8px 16px" onclick="addStaff()">追加</button>
+      </div>
+    </div>
+    <div id="staffList"></div>
+  </div>
+
+  <!-- Special hours -->
+  <div id="tabSpecial" style="display:none">
+    <div class="settings-form">
+      <h3>特別営業時間を追加</h3>
+      <div class="form-row">
+        <label>日付</label>
+        <input type="date" id="spDate">
+      </div>
+      <div class="form-row">
+        <label>時間</label>
+        <input type="number" id="spHourStart" min="0" max="23" value="10">
+        <span class="sep">〜</span>
+        <input type="number" id="spHourEnd" min="1" max="24" value="20">
+        <span class="sep">時</span>
+      </div>
+      <div class="form-row">
+        <label>メモ</label>
+        <input type="text" id="spNote" placeholder="例：GW特別営業">
+      </div>
+      <button class="add-btn" onclick="addSpecialHours()">＋ 追加する</button>
+    </div>
+    <div id="specialList"></div>
+  </div>
+
+  <!-- Closed days -->
+  <div id="tabClosed" style="display:none">
+    <div class="settings-form">
+      <h3>定休日・休業日を追加</h3>
+      <div class="form-row">
+        <label>日付</label>
+        <input type="date" id="clDate">
+      </div>
+      <div class="form-row">
+        <label>メモ</label>
+        <input type="text" id="clNote" placeholder="例：定休日・年末年始">
+      </div>
+      <button class="add-btn" onclick="addClosedDay()">＋ 追加する</button>
+    </div>
+    <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px">登録した日はスタッフ画面でグレーアウト表示され入力不可になります。</p>
+    <div id="closedList"></div>
+  </div>
+
+  <button class="btn-secondary" style="max-width:200px;margin-top:16px" onclick="showSetup()">← 入力画面に戻る</button>
+</div>
+
+<script>
+// ===== Storage =====
+const S = k => { try { return JSON.parse(localStorage.getItem(k)||'null'); } catch { return null; } };
+const SS = (k,v) => localStorage.setItem(k, JSON.stringify(v));
+const getSubmissions = () => S('mokki_submissions') || [];
+const saveSubmissions = v => SS('mokki_submissions', v);
+const getSpecialHours = () => S('mokki_special_hours') || [];
+const saveSpecialHours = v => SS('mokki_special_hours', v);
+const getClosedDays = () => S('mokki_closed_days') || [];
+const saveClosedDays = v => SS('mokki_closed_days', v);
+const getStaff = () => S('mokki_staff') || ['K','A','B','C','D','E','F','G'];
+const saveStaff = v => SS('mokki_staff', v);
+const getConfirmed = () => S('mokki_confirmed') || {};
+const saveConfirmed = v => SS('mokki_confirmed', v);
+const getShiftMemoVal = () => S('mokki_shift_memo') || '';
+const saveShiftMemoVal = v => SS('mokki_shift_memo', v);
+
+// ===== State =====
+let selectedName = '';
+let currentPeriod = null;
+let dayData = {};
+let activeTimeline = null;
+let adminCurrentPeriodKey = null;
+
+// ===== Period =====
+function getCurrentPeriod() {
+  const now = new Date();
+  const day = now.getDate(), year = now.getFullYear(), month = now.getMonth();
+  let sm = day >= 20 ? month + 1 : month, sy = year;
+  if (sm > 11) { sm = 0; sy++; }
+  const start = new Date(sy, sm, 16);
+  let em = sm + 1, ey = sy;
+  if (em > 11) { em = 0; ey++; }
+  const end = new Date(ey, em, 15);
+  const deadline = new Date(sy, sm, 0);
+  const editDeadline = new Date(deadline);
+  editDeadline.setDate(editDeadline.getDate() + 2);
+  editDeadline.setHours(23,59,59,999);
+  const smn = start.getMonth()+1, emn = end.getMonth()+1;
+  const dm = deadline.getMonth()+1, dd = deadline.getDate();
+  return {
+    start, end, deadline, editDeadline,
+    label: `${smn}月16日 〜 ${ey === sy ? '' : ey+'年'}${emn}月15日`,
+    labelShort: `${smn}/16〜${emn}/15`,
+    key: `${sy}-${String(smn).padStart(2,'0')}-16`,
+    deadlineStr: `提出期限：${dm}月${dd}日まで（${dm}月${dd+2}日まで編集可）`,
+    isLocked: now > editDeadline
+  };
+}
+
+// ===== Date helpers =====
+const toDS = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const DOW = ['日','月','火','水','木','金','土'];
+const getDOW = d => DOW[d.getDay()];
+const HOLIDAYS = new Set(['2025-01-01','2025-01-13','2025-02-11','2025-02-23','2025-02-24','2025-03-20','2025-04-29','2025-05-03','2025-05-04','2025-05-05','2025-05-06','2025-07-21','2025-08-11','2025-09-15','2025-09-22','2025-09-23','2025-10-13','2025-11-03','2025-11-23','2025-11-24','2025-12-23','2026-01-01','2026-01-12','2026-02-11','2026-02-23','2026-03-20','2026-04-29','2026-05-03','2026-05-04','2026-05-05','2026-05-06','2026-07-20','2026-08-11','2026-09-21','2026-09-22','2026-09-23','2026-10-12','2026-11-03','2026-11-23','2026-12-23','2027-01-01','2027-01-11','2027-02-11','2027-02-23']);
+const isHoliday = d => HOLIDAYS.has(toDS(d));
+const isSpecialDay = d => d.getDay()===0 || d.getDay()===6 || isHoliday(d);
+const isClosedDay = d => { const ds=toDS(d); return getClosedDays().some(c=>c.date===ds); };
+function getHourRange(d) {
+  const ds = toDS(d);
+  for (const sp of getSpecialHours()) if (sp.date===ds) return {start:sp.hourStart,end:sp.hourEnd,isSpecial:true,note:sp.note};
+  return isSpecialDay(d) ? {start:7,end:22,isSpecial:false} : {start:8,end:22,isSpecial:false};
+}
+function getDatesInPeriod(p) {
+  const dates=[], cur=new Date(p.start);
+  while(cur<=p.end){dates.push(new Date(cur));cur.setDate(cur.getDate()+1);}
+  return dates;
+}
+
+// ===== Init =====
+function init() {
+  currentPeriod = getCurrentPeriod();
+  document.getElementById('pbValue').textContent = currentPeriod.label;
+  document.getElementById('pbDeadline').textContent = currentPeriod.deadlineStr;
+  document.getElementById('periodBadge').textContent = currentPeriod.labelShort;
+  document.getElementById('lockedBanner').style.display = currentPeriod.isLocked ? '' : 'none';
+  rebuildNameSelect();
+  document.getElementById('nameSelect').value = '';
+  selectedName = '';
+  document.getElementById('startBtn').disabled = true;
+}
+
+function rebuildNameSelect() {
+  const sel = document.getElementById('nameSelect');
+  const staff = getStaff();
+  sel.innerHTML = '<option value="">選択してください</option>';
+  staff.forEach(n => { const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+  sel.disabled = currentPeriod && currentPeriod.isLocked;
+}
+
+document.getElementById('nameSelect').onchange = function() {
+  selectedName = this.value;
+  document.getElementById('startBtn').disabled = !selectedName || (currentPeriod && currentPeriod.isLocked);
+};
+
+// ===== Input =====
+function startInput() {
+  const dates = getDatesInPeriod(currentPeriod);
+  dayData = {};
+  dates.forEach(d => { dayData[toDS(d)] = {unavail:false,allday:false,start:null,end:null,note:''}; });
+  document.getElementById('mainTitle').textContent = `${selectedName} さんの希望`;
+  // Load existing
+  const existing = getSubmissions().filter(s=>s.name===selectedName&&s.periodKey===currentPeriod.key);
+  if (existing.length) {
+    const latest = existing.sort((a,b)=>b.submittedAt.localeCompare(a.submittedAt))[0];
+    latest.entries.forEach(e => { if (dayData[e.date]!==undefined) dayData[e.date]={unavail:e.unavail,allday:e.allday||false,start:e.start,end:e.end,note:e.note||''}; });
+    document.getElementById('mainSub').textContent = '前回の内容を読み込みました。修正して再送信できます。';
+  } else {
+    document.getElementById('mainSub').textContent = 'タップで時間を設定 / 「終日OK」または「×休み」をタップ';
+  }
+  renderDays(dates);
+  showScreen('mainScreen');
+  document.getElementById('submitBar').style.display = '';
+  updateSubmitCount();
+}
+
+function renderDays(dates) {
+  const list = document.getElementById('daysList');
+  list.innerHTML = '';
+  dates.forEach(d => {
+    const ds = toDS(d), dow = getDOW(d), isHol=isHoliday(d), isSat=d.getDay()===6, isSun=d.getDay()===0;
+    const isClosed = isClosedDay(d), hr = getHourRange(d);
+    const dowClass = isSat?'sat':(isSun||isHol)?'sun':'';
+    const card = document.createElement('div');
+    card.id = `card-${ds}`;
+    if (isClosed) {
+      card.className = 'day-card is-closed';
+      card.innerHTML = `<div class="day-header"><div class="day-label"><div class="day-num">${d.getDate()}</div><div class="day-name ${dowClass}">${dow}${isHol?'・祝':''}</div></div><div class="day-status closed">定休日</div></div>`;
+      list.appendChild(card); return;
+    }
+    const entry = dayData[ds];
+    let sc='',st='未設定',ce='';
+    if(entry.unavail){sc='unavail';st='× 休み';ce=' is-unavail';}
+    else if(entry.allday){sc='allday';st='終日OK';ce=' is-allday';}
+    else if(entry.start!==null){sc='set';st=`${entry.start}〜${entry.end}時`;ce=' has-range';}
+    const specialNote = hr.isSpecial ? `<div class="special-hours-note">⚡ 特別営業 ${hr.start}〜${hr.end}時${hr.note?' ('+hr.note+')':''}</div>` : '';
+    card.className = 'day-card'+ce;
+    card.innerHTML = `
+      <div class="day-header" onclick="toggleTimeline('${ds}')">
+        <div class="day-label"><div class="day-num">${d.getDate()}</div><div class="day-name ${dowClass}">${dow}${isHol?'・祝':''}</div></div>
+        <div class="day-status ${sc}" id="status-${ds}">${st}</div>
+        <div class="day-actions">
+          <button class="allday-btn${entry.allday?' on':''}" id="alldayBtn-${ds}" onclick="event.stopPropagation();toggleAllday('${ds}')">終日OK</button>
+          <button class="unavail-toggle" id="unavailBtn-${ds}" onclick="event.stopPropagation();toggleUnavail('${ds}')">${entry.unavail?'↩ 戻す':'× 休み'}</button>
+        </div>
+      </div>
+      <div class="timeline-wrap" id="tl-${ds}">
+        ${specialNote}
+        <div class="time-labels" id="tlLabels-${ds}"></div>
+        <div class="timeline-track" id="track-${ds}">
+          <div class="timeline-hours" id="hours-${ds}"></div>
+          <div class="timeline-selection" id="sel-${ds}"><div class="handle handle-left" id="hleft-${ds}"></div><div class="handle handle-right" id="hright-${ds}"></div></div>
+        </div>
+        <div class="time-display" id="timeDisp-${ds}"></div>
+        <button class="clear-btn" onclick="clearRange('${ds}')">クリア</button>
+        <div class="note-field"><div class="note-label">備考（任意）</div><textarea placeholder="例：15時以降なら可" id="note-${ds}" onchange="dayData['${ds}'].note=this.value">${entry.note||''}</textarea></div>
+      </div>`;
+    list.appendChild(card);
+    const hoursEl=document.getElementById(`hours-${ds}`), labelsEl=document.getElementById(`tlLabels-${ds}`);
+    for(let h=hr.start;h<hr.end;h++){const c=document.createElement('div');c.className='hour-cell';hoursEl.appendChild(c);}
+    for(let h=hr.start;h<=hr.end;h+=2){const l=document.createElement('span');l.textContent=`${h}`;labelsEl.appendChild(l);}
+    setupTimeline(ds,hr);
+    if(entry.start!==null&&!entry.unavail&&!entry.allday) setTimeout(()=>renderSelection(ds),0);
+  });
+}
+
+function toggleTimeline(ds) {
+  const tl=document.getElementById(`tl-${ds}`), isOpen=tl.classList.contains('open');
+  document.querySelectorAll('.timeline-wrap').forEach(t=>t.classList.remove('open'));
+  const d=dayData[ds];
+  if(!isOpen&&!d.unavail&&!d.allday) tl.classList.add('open');
+}
+
+function toggleAllday(ds) {
+  const d=dayData[ds]; d.allday=!d.allday;
+  const card=document.getElementById(`card-${ds}`), status=document.getElementById(`status-${ds}`);
+  const btn=document.getElementById(`alldayBtn-${ds}`), tl=document.getElementById(`tl-${ds}`);
+  const ubtn=document.getElementById(`unavailBtn-${ds}`);
+  if(d.allday){
+    d.unavail=false;d.start=null;d.end=null;
+    card.className='day-card is-allday';tl.classList.remove('open');
+    status.textContent='終日OK';status.className='day-status allday';
+    btn.classList.add('on');ubtn.textContent='× 休み';renderSelection(ds);
+  } else {
+    card.className='day-card';status.textContent='未設定';status.className='day-status';btn.classList.remove('on');
+  }
+  updateSubmitCount();
+}
+
+function toggleUnavail(ds) {
+  const d=dayData[ds]; d.unavail=!d.unavail;
+  const card=document.getElementById(`card-${ds}`), status=document.getElementById(`status-${ds}`);
+  const btn=document.getElementById(`unavailBtn-${ds}`), aBtn=document.getElementById(`alldayBtn-${ds}`);
+  const tl=document.getElementById(`tl-${ds}`);
+  if(d.unavail){
+    d.allday=false;d.start=null;d.end=null;
+    card.className='day-card is-unavail';tl.classList.remove('open');
+    renderSelection(ds);status.textContent='× 休み';status.className='day-status unavail';
+    btn.textContent='↩ 戻す';aBtn.classList.remove('on');
+  } else {
+    card.className='day-card';status.textContent='未設定';status.className='day-status';btn.textContent='× 休み';
+  }
+  updateSubmitCount();
+}
+
+function setupTimeline(ds, hr) {
+  const track=document.getElementById(`track-${ds}`), totalHours=hr.end-hr.start;
+  let dragging=null;
+  const pxToHour=px=>{const r=track.getBoundingClientRect();return Math.round(Math.max(0,Math.min(1,px/r.width))*totalHours)+hr.start;};
+  const getX=e=>e.touches?e.touches[0].clientX:e.clientX;
+  function onDown(e){
+    const d=dayData[ds];if(d.unavail||d.allday)return;e.preventDefault();
+    const x=getX(e)-track.getBoundingClientRect().left, h=pxToHour(x);
+    const hl=document.getElementById(`hleft-${ds}`), hr2=document.getElementById(`hright-${ds}`);
+    if(e.target===hl||(e.target.closest&&e.target.closest(`#hleft-${ds}`)))dragging='start';
+    else if(e.target===hr2||(e.target.closest&&e.target.closest(`#hright-${ds}`)))dragging='end';
+    else{dragging='new';d.start=h;d.end=Math.min(h+1,hr.end);}
+    renderSelection(ds);activeTimeline=ds;
+  }
+  function onMove(e){
+    if(!dragging||activeTimeline!==ds)return;e.preventDefault();
+    const h=pxToHour(getX(e)-track.getBoundingClientRect().left), d=dayData[ds];
+    if(dragging==='new'||dragging==='end')d.end=Math.min(Math.max(h,(d.start||hr.start)+1),hr.end);
+    else if(dragging==='start')d.start=Math.max(Math.min(h,(d.end||hr.end)-1),hr.start);
+    renderSelection(ds);
+  }
+  function onUp(){if(!dragging||activeTimeline!==ds)return;dragging=null;activeTimeline=null;updateSubmitCount();}
+  track.addEventListener('mousedown',onDown);
+  track.addEventListener('touchstart',onDown,{passive:false});
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('touchmove',onMove,{passive:false});
+  document.addEventListener('mouseup',onUp);
+  document.addEventListener('touchend',onUp);
+}
+
+function renderSelection(ds) {
+  const d=dayData[ds], sel=document.getElementById(`sel-${ds}`), disp=document.getElementById(`timeDisp-${ds}`);
+  const card=document.getElementById(`card-${ds}`), status=document.getElementById(`status-${ds}`);
+  const hr=getHourRange(new Date(ds+'T00:00:00')), totalHours=hr.end-hr.start;
+  if(d.unavail||d.allday){sel.style.display='none';return;}
+  if(d.start!==null&&d.end!==null&&d.end>d.start){
+    sel.style.display='block';
+    sel.style.left=((d.start-hr.start)/totalHours*100)+'%';
+    sel.style.width=((d.end-d.start)/totalHours*100)+'%';
+    disp.textContent=`${d.start}:00 〜 ${d.end}:00`;
+    card.classList.add('has-range');card.classList.remove('is-unavail','is-allday');
+    status.textContent=`${d.start}〜${d.end}時`;status.className='day-status set';
+  } else {
+    sel.style.display='none';disp.textContent='';
+    if(!d.unavail&&!d.allday){card.classList.remove('has-range');status.textContent='未設定';status.className='day-status';}
+  }
+}
+
+function clearRange(ds){dayData[ds].start=null;dayData[ds].end=null;renderSelection(ds);updateSubmitCount();}
+
+function updateSubmitCount(){
+  const set=Object.values(dayData).filter(d=>d.unavail||d.allday||d.start!==null).length;
+  const total=Object.keys(dayData).length;
+  document.getElementById('submitCount').innerHTML=`<strong>${set}</strong> / ${total}日 入力済み`;
+}
+
+function showConfirm(){
+  const list=document.getElementById('confirmList'); list.innerHTML='';
+  const dates=getDatesInPeriod(currentPeriod); let hasAny=false;
+  dates.forEach(d=>{
+    const ds=toDS(d), entry=dayData[ds];
+    if(!entry.unavail&&!entry.allday&&entry.start===null)return;
+    hasAny=true;
+    const item=document.createElement('div'); item.className='confirm-item';
+    const val=entry.unavail?'× 休み':entry.allday?'終日OK':`${entry.start}:00 〜 ${entry.end}:00`;
+    item.innerHTML=`<div class="confirm-date">${d.getMonth()+1}/${d.getDate()} (${getDOW(d)})</div><div><div class="confirm-val${entry.unavail?' unavail':''}">${val}</div>${entry.note?`<div class="confirm-note">${entry.note}</div>`:''}</div>`;
+    list.appendChild(item);
+  });
+  if(!hasAny)list.innerHTML='<div class="empty-state">まだ入力がありません</div>';
+  document.getElementById('submitBar').style.display='none';
+  showScreen('confirmScreen');
+}
+
+function backToMain(){showScreen('mainScreen');document.getElementById('submitBar').style.display='';}
+
+function submitData(){
+  const subs=getSubmissions(), entries=[];
+  getDatesInPeriod(currentPeriod).forEach(d=>{
+    const ds=toDS(d), e=dayData[ds];
+    if(e.unavail||e.allday||e.start!==null) entries.push({date:ds,unavail:e.unavail,allday:e.allday,start:e.start,end:e.end,note:e.note});
+  });
+  subs.push({id:Date.now(),name:selectedName,period:currentPeriod.label,periodKey:currentPeriod.key,submittedAt:new Date().toISOString(),entries});
+  saveSubmissions(subs);
+  showScreen('doneScreen');
+}
+
+// ===== Screen =====
+function showScreen(id){
+  document.querySelectorAll('.screen,.admin-screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id!=='mainScreen')document.getElementById('submitBar').style.display='none';
+}
+
+function showSetup(){
+  document.getElementById('nameSelect').value=''; selectedName='';
+  document.getElementById('startBtn').disabled=true;
+  init(); showScreen('setupScreen');
+}
+
+// ===== Admin =====
+function showAdminLogin(){
+  document.getElementById('pwInput').value='';
+  document.getElementById('pwError').style.display='none';
+  showScreen('adminLoginScreen');
+}
+
+function checkPw(){
+  if(document.getElementById('pwInput').value===ADMIN_PW){
+    showScreen('adminScreen');
+    switchAdminTab('shift');
+  } else {
+    document.getElementById('pwError').style.display='block';
+  }
+}
+
+const ADMIN_PW='1234';
+
+function switchAdminTab(tab){
+  ['shift','submissions','staff','special','closed'].forEach(t=>{
+    document.getElementById('nav'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('active',t===tab);
+    document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).style.display=t===tab?'':'none';
+  });
+  if(tab==='shift')renderShiftView();
+  if(tab==='submissions')renderSubmissions();
+  if(tab==='staff')renderStaffList();
+  if(tab==='special')renderSpecialList();
+  if(tab==='closed')renderClosedList();
+}
+
+// ===== Shift View =====
+function renderShiftView(){
+  document.getElementById('shiftMemo').value = getShiftMemoVal();
+  const subs=getSubmissions();
+  const periods={};
+  subs.forEach(s=>{if(!periods[s.periodKey])periods[s.periodKey]={label:s.period,subs:[]};periods[s.periodKey].subs.push(s);});
+  const tabs=document.getElementById('shiftPeriodTabs'); tabs.innerHTML='';
+  const keys=Object.keys(periods).sort((a,b)=>b.localeCompare(a));
+  if(!keys.length){document.getElementById('shiftTableWrap').innerHTML='<div class="empty-state">まだ提出がありません</div>';return;}
+  if(!adminCurrentPeriodKey||!periods[adminCurrentPeriodKey])adminCurrentPeriodKey=keys[0];
+  keys.forEach((k,i)=>{
+    const tab=document.createElement('button');
+    tab.className='shift-period-tab'+(k===adminCurrentPeriodKey?' active':'');
+    tab.textContent=periods[k].label;
+    tab.onclick=()=>{adminCurrentPeriodKey=k;document.querySelectorAll('.shift-period-tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');buildShiftTable(k,periods[k]);};
+    tabs.appendChild(tab);
+  });
+  buildShiftTable(adminCurrentPeriodKey, periods[adminCurrentPeriodKey]);
+}
+
+function buildShiftTable(periodKey, periodData){
+  const wrap=document.getElementById('shiftTableWrap');
+  // Parse period key to get dates
+  const [sy,sm]=periodKey.split('-').map(Number);
+  const start=new Date(sy,sm-1,16);
+  let em=sm, ey=sy;
+  if(em>11){em=0;ey++;}else{em=sm;}// next month
+  // Actually compute end date
+  let endM=sm, endY=sy; // start month
+  endM+=1; if(endM>12){endM=1;endY++;}
+  const end=new Date(endY,endM-1,15);
+
+  const dates=[];
+  const cur=new Date(start);
+  while(cur<=end){dates.push(new Date(cur));cur.setDate(cur.getDate()+1);}
+
+  // Latest submission per staff
+  const latestByName={};
+  periodData.subs.forEach(s=>{
+    if(!latestByName[s.name]||s.submittedAt>latestByName[s.name].submittedAt)latestByName[s.name]=s;
+  });
+
+  // Build entry lookup: staffName -> date -> {allday,start,end,unavail}
+  const lookup={};
+  Object.values(latestByName).forEach(sub=>{
+    lookup[sub.name]={};
+    sub.entries.forEach(e=>lookup[sub.name][e.date]=e);
+  });
+
+  // Confirmed data
+  const confirmed=getConfirmed();
+  if(!confirmed[periodKey])confirmed[periodKey]={};
+
+  // Determine global hour range for this period
+  const MIN_H=7, MAX_H=22;
+  const hours=[];
+  for(let h=MIN_H;h<MAX_H;h++)hours.push(h);
+
+  const staff=getStaff().filter(s=>latestByName[s]); // only submitted staff
+
+  // Build table
+  const table=document.createElement('table');
+  table.className='shift-table';
+
+  // Header row
+  const thead=document.createElement('thead');
+  const hr0=document.createElement('tr');
+  const thCorner=document.createElement('th');
+  thCorner.style.cssText='min-width:110px;width:110px;';
+  hr0.appendChild(thCorner);
+  const thStaffLabel=document.createElement('th');
+  thStaffLabel.style.cssText='min-width:32px;';
+  hr0.appendChild(thStaffLabel);
+  hours.forEach(h=>{
+    const th=document.createElement('th');
+    th.textContent=h;
+    th.style.cssText='font-family:"DM Mono",monospace;font-size:10px;width:28px;min-width:28px;text-align:center;padding:3px 0;';
+    hr0.appendChild(th);
+  });
+  thead.appendChild(hr0);
+  table.appendChild(thead);
+
+  const tbody=document.createElement('tbody');
+
+  dates.forEach(d=>{
+    const ds=toDS(d);
+    if(isClosedDay(d))return;
+    const hr=getHourRange(d);
+    const dow=getDOW(d), isHol=isHoliday(d), isSat=d.getDay()===6, isSun=d.getDay()===0;
+
+    // Filter staff who are not on rest
+    const activeStaff=staff.filter(s=>{
+      const e=lookup[s]?.[ds];
+      return !e || !e.unavail;
+    });
+    if(!activeStaff.length)return;
+
+    // Date header row
+    const dateRow=document.createElement('tr');
+    const tdDate=document.createElement('td');
+    tdDate.colSpan=2+hours.length;
+    tdDate.className='date-row-header';
+    let dateColor=isSat?'#5a8ab0':(isSun||isHol)?'#a05a5a':'var(--text)';
+    tdDate.innerHTML=`<span style="color:${dateColor}">${d.getMonth()+1}月${d.getDate()}日 (${dow}${isHol?'・祝':''})</span>`;
+    if(hr.isSpecial)tdDate.innerHTML+=`<span style="font-size:10px;color:#8ab05a;margin-left:8px">⚡ ${hr.start}〜${hr.end}時</span>`;
+    dateRow.appendChild(tdDate);
+    tbody.appendChild(dateRow);
+
+    // Staff rows
+    activeStaff.forEach(name=>{
+      const row=document.createElement('tr');
+      // Staff label
+      const tdName=document.createElement('td');
+      tdName.className='th-staff';
+      tdName.textContent=name;
+      row.appendChild(tdName);
+      // Empty first col (date already shown)
+      const tdSpacer=document.createElement('td');
+      tdSpacer.style.cssText='width:0;padding:0;border:none;';
+      row.insertBefore(tdSpacer,tdName); // insert before name
+      // Actually let's redo: first col is blank (for alignment), second is name
+      row.innerHTML='';
+      const tdBlank=document.createElement('td');
+      tdBlank.style.cssText='width:110px;min-width:110px;border:none;background:var(--surface2);';
+      row.appendChild(tdBlank);
+      const tdN=document.createElement('td');
+      tdN.className='th-staff';
+      tdN.textContent=name;
+      row.appendChild(tdN);
+
+      const entry=lookup[name]?.[ds];
+      const isAllday=entry&&entry.allday;
+      const wishStart=isAllday?hr.start:(entry?entry.start:null);
+      const wishEnd=isAllday?hr.end:(entry?entry.end:null);
+
+      hours.forEach(h=>{
+        const td=document.createElement('td');
+        td.className='cell';
+        const inHours=h>=hr.start&&h<hr.end;
+        if(!inHours){td.className='cell off';row.appendChild(td);return;}
+        const hasWish=wishStart!==null&&h>=wishStart&&h<wishEnd;
+        const confKey=`${ds}__${name}__${h}`;
+        const isConfirmed=confirmed[periodKey][confKey];
+        if(isConfirmed){td.className='cell confirmed';}
+        else if(hasWish){td.className='cell wish';}
+        else{td.className='cell empty';}
+        // Click handler
+        if(hasWish||isConfirmed){
+          td.addEventListener('click',()=>toggleConfirmed(periodKey,ds,name,h,td));
+          td.addEventListener('mouseenter',e=>{if(e.buttons===1)toggleConfirmed(periodKey,ds,name,h,td);});
+        }
+        row.appendChild(td);
+      });
+      tbody.appendChild(row);
+    });
+  });
+
+  table.appendChild(tbody);
+  wrap.innerHTML='';
+  wrap.appendChild(table);
+}
+
+function toggleConfirmed(periodKey,ds,name,h,td){
+  const confirmed=getConfirmed();
+  if(!confirmed[periodKey])confirmed[periodKey]={};
+  const key=`${ds}__${name}__${h}`;
+  if(confirmed[periodKey][key]){
+    delete confirmed[periodKey][key];
+    td.className='cell wish';
+  } else {
+    confirmed[periodKey][key]=true;
+    td.className='cell confirmed';
+  }
+  saveConfirmed(confirmed);
+}
+
+function saveShiftMemo(){
+  saveShiftMemoVal(document.getElementById('shiftMemo').value);
+}
+
+// ===== Submissions tab =====
+function renderSubmissions(){
+  const subs=getSubmissions(), tabs=document.getElementById('adminTabs'), content=document.getElementById('adminContent');
+  const periods={};
+  subs.forEach(s=>{if(!periods[s.periodKey])periods[s.periodKey]={label:s.period,subs:[]};periods[s.periodKey].subs.push(s);});
+  tabs.innerHTML='';content.innerHTML='';
+  if(!Object.keys(periods).length){content.innerHTML='<div class="empty-state">まだ提出がありません</div>';return;}
+  let firstKey=null;
+  Object.entries(periods).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([key,val],i)=>{
+    if(i===0)firstKey=key;
+    const tab=document.createElement('button');
+    tab.className='admin-tab'+(i===0?' active':'');
+    tab.textContent=val.label;
+    tab.onclick=()=>{document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');renderAdminPeriod(key,val);};
+    tabs.appendChild(tab);
+  });
+  if(firstKey)renderAdminPeriod(firstKey,periods[firstKey]);
+}
+
+function renderAdminPeriod(key,val){
+  const content=document.getElementById('adminContent'); content.innerHTML='';
+  const latest={};
+  val.subs.forEach(s=>{if(!latest[s.name]||s.submittedAt>latest[s.name].submittedAt)latest[s.name]=s;});
+  const missing=getStaff().filter(s=>!latest[s]);
+  if(missing.length){const el=document.createElement('div');el.style.cssText='background:var(--unavail);border:1px solid var(--unavail-border);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#a05a5a';el.textContent=`未提出: ${missing.join(', ')}`;content.appendChild(el);}
+  Object.values(latest).sort((a,b)=>a.name.localeCompare(b.name)).forEach(sub=>{
+    const card=document.createElement('div');card.className='submission-card';
+    const sd=new Date(sub.submittedAt);
+    const ds2=`${sd.getMonth()+1}/${sd.getDate()} ${String(sd.getHours()).padStart(2,'0')}:${String(sd.getMinutes()).padStart(2,'0')}`;
+    card.innerHTML=`<div class="sub-header"><div class="sub-name">${sub.name}</div><div style="display:flex;gap:8px;align-items:center"><div class="sub-meta">${ds2} 提出</div><button class="delete-btn" onclick="deleteSub(${sub.id})">削除</button></div></div><div class="sub-grid" id="sg-${sub.id}"></div>`;
+    content.appendChild(card);
+    const grid=document.getElementById(`sg-${sub.id}`);
+    sub.entries.forEach(e=>{
+      const dd=new Date(e.date+'T00:00:00');
+      const chip=document.createElement('div');chip.className=`sub-chip ${e.unavail?'unavail':'avail'}`;
+      chip.textContent=`${dd.getMonth()+1}/${dd.getDate()}(${getDOW(dd)}) ${e.unavail?'×':e.allday?'終日':e.start+'〜'+e.end}`;
+      grid.appendChild(chip);
+      if(e.note){const n=document.createElement('div');n.className='sub-chip';n.style.cssText='color:var(--text-muted);font-family:"Noto Sans JP",sans-serif';n.textContent=`📝 ${e.note}`;grid.appendChild(n);}
+    });
+  });
+}
+
+function deleteSub(id){if(!confirm('この提出を削除しますか？'))return;saveSubmissions(getSubmissions().filter(s=>s.id!==id));renderSubmissions();}
+
+// ===== Staff =====
+function renderStaffList(){
+  const list=document.getElementById('staffList'), staff=getStaff();
+  list.innerHTML='';
+  const row=document.createElement('div'); row.className='staff-chip-row';
+  staff.forEach((name,i)=>{
+    const chip=document.createElement('div'); chip.className='staff-chip';
+    chip.innerHTML=`<span class="staff-chip-name" id="staffName-${i}">${name}</span><button class="staff-chip-del" onclick="deleteStaff(${i})" title="削除">×</button>`;
+    row.appendChild(chip);
+  });
+  if(!staff.length)row.innerHTML='<div style="font-size:12px;color:var(--text-dim)">スタッフが登録されていません</div>';
+  list.appendChild(row);
+}
+
+function addStaff(){
+  const input=document.getElementById('staffNameInput'), name=input.value.trim();
+  if(!name){alert('名前を入力してください');return;}
+  const staff=getStaff();
+  if(staff.includes(name)){alert('同じ名前がすでに登録されています');return;}
+  staff.push(name); saveStaff(staff); input.value=''; rebuildNameSelect(); renderStaffList();
+}
+
+function deleteStaff(i){
+  const staff=getStaff();
+  if(!confirm(`「${staff[i]}」を削除しますか？`))return;
+  staff.splice(i,1); saveStaff(staff); rebuildNameSelect(); renderStaffList();
+}
+
+// ===== Special Hours =====
+function addSpecialHours(){
+  const date=document.getElementById('spDate').value;
+  const hs=parseInt(document.getElementById('spHourStart').value);
+  const he=parseInt(document.getElementById('spHourEnd').value);
+  const note=document.getElementById('spNote').value.trim();
+  if(!date){alert('日付を入力してください');return;}
+  if(isNaN(hs)||isNaN(he)||he<=hs){alert('時間を正しく入力してください');return;}
+  const arr=getSpecialHours();
+  const existing=arr.findIndex(s=>s.date===date);
+  if(existing>=0)arr.splice(existing,1);
+  arr.push({id:Date.now(),date,hourStart:hs,hourEnd:he,note});
+  saveSpecialHours(arr);
+  document.getElementById('spDate').value='';
+  document.getElementById('spNote').value='';
+  renderSpecialList();
+}
+
+function renderSpecialList(){
+  const list=document.getElementById('specialList'), arr=getSpecialHours();
+  list.innerHTML='';
+  if(!arr.length){list.innerHTML='<div class="empty-state">特別営業時間の設定はありません</div>';return;}
+  arr.sort((a,b)=>a.date.localeCompare(b.date)).forEach(sp=>{
+    const item=document.createElement('div'); item.className='setting-item';
+    const d=new Date(sp.date+'T00:00:00');
+    item.innerHTML=`<div class="setting-item-info"><div class="setting-item-main">${d.getMonth()+1}/${d.getDate()} (${getDOW(d)})${sp.note?' — '+sp.note:''}</div><div class="setting-item-sub green">⚡ ${sp.hourStart}:00 〜 ${sp.hourEnd}:00</div></div><div class="setting-item-actions"><button class="edit-btn" onclick="editSpecial(${sp.id})">編集</button><button class="delete-btn" onclick="deleteSpecial(${sp.id})">削除</button></div>`;
+    list.appendChild(item);
+  });
+}
+
+function editSpecial(id){
+  const sp=getSpecialHours().find(s=>s.id===id); if(!sp)return;
+  document.getElementById('spDate').value=sp.date;
+  document.getElementById('spHourStart').value=sp.hourStart;
+  document.getElementById('spHourEnd').value=sp.hourEnd;
+  document.getElementById('spNote').value=sp.note||'';
+  deleteSpecial(id,true);
+}
+
+function deleteSpecial(id,silent){
+  if(!silent&&!confirm('削除しますか？'))return;
+  saveSpecialHours(getSpecialHours().filter(s=>s.id!==id));
+  renderSpecialList();
+}
+
+// ===== Closed Days =====
+function addClosedDay(){
+  const date=document.getElementById('clDate').value;
+  const note=document.getElementById('clNote').value.trim();
+  if(!date){alert('日付を入力してください');return;}
+  const arr=getClosedDays();
+  if(arr.some(c=>c.date===date)){alert('この日付はすでに登録されています');return;}
+  arr.push({id:Date.now(),date,note});
+  saveClosedDays(arr);
+  document.getElementById('clDate').value='';
+  document.getElementById('clNote').value='';
+  renderClosedList();
+}
+
+function renderClosedList(){
+  const list=document.getElementById('closedList'), arr=getClosedDays();
+  list.innerHTML='';
+  if(!arr.length){list.innerHTML='<div class="empty-state">定休日・休業日の設定はありません</div>';return;}
+  arr.sort((a,b)=>a.date.localeCompare(b.date)).forEach(cl=>{
+    const item=document.createElement('div'); item.className='setting-item';
+    const d=new Date(cl.date+'T00:00:00');
+    item.innerHTML=`<div class="setting-item-info"><div class="setting-item-main">${d.getMonth()+1}/${d.getDate()} (${getDOW(d)})</div><div class="setting-item-sub red">🚫 ${cl.note||'定休日'}</div></div><div class="setting-item-actions"><button class="edit-btn" onclick="editClosed(${cl.id})">編集</button><button class="delete-btn" onclick="deleteClosed(${cl.id})">削除</button></div>`;
+    list.appendChild(item);
+  });
+}
+
+function editClosed(id){
+  const cl=getClosedDays().find(c=>c.id===id); if(!cl)return;
+  document.getElementById('clDate').value=cl.date;
+  document.getElementById('clNote').value=cl.note||'';
+  deleteClosed(id,true);
+}
+
+function deleteClosed(id,silent){
+  if(!silent&&!confirm('削除しますか？'))return;
+  saveClosedDays(getClosedDays().filter(c=>c.id!==id));
+  renderClosedList();
+}
+
+// Init
+init();
+</script>
+</body>
+</html>
