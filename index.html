@@ -200,7 +200,7 @@ select:focus{outline:none;border-color:var(--accent);}
   <div id="lockedBanner" class="locked-banner" style="display:none">⚠️ 提出期限を過ぎたため、現在は入力できません。</div>
   <div class="section-label">名前</div>
   <select id="nameSelect"><option value="">選択してください</option></select>
-  <button class="btn-primary" id="startBtn" disabled onclick="startInput()">入力を始める →</button>
+  <button class="btn-primary" id="startBtn" disabled>入力を始める →</button>
   <div class="admin-link"><a onclick="showAdminLogin()">管理者ページ</a></div>
 </div>
 
@@ -348,21 +348,113 @@ select:focus{outline:none;border-color:var(--accent);}
 </div>
 
 <script>
-// ===== Storage =====
-const S = k => { try { return JSON.parse(localStorage.getItem(k)||'null'); } catch { return null; } };
-const SS = (k,v) => localStorage.setItem(k, JSON.stringify(v));
-const getSubmissions = () => S('mokki_submissions') || [];
-const saveSubmissions = v => SS('mokki_submissions', v);
-const getSpecialHours = () => S('mokki_special_hours') || [];
-const saveSpecialHours = v => SS('mokki_special_hours', v);
-const getClosedDays = () => S('mokki_closed_days') || [];
-const saveClosedDays = v => SS('mokki_closed_days', v);
-const getStaff = () => S('mokki_staff') || ['K','A','B','C','D','E','F','G'];
-const saveStaff = v => SS('mokki_staff', v);
-const getConfirmed = () => S('mokki_confirmed') || {};
-const saveConfirmed = v => SS('mokki_confirmed', v);
-const getShiftMemoVal = () => S('mokki_shift_memo') || '';
-const saveShiftMemoVal = v => SS('mokki_shift_memo', v);
+// ===== GAS API =====
+async function gasPost(payload) {
+  const res = await fetch(GAS_URL, {method:'POST', body:JSON.stringify(payload)});
+  return res.json();
+}
+async function gasGet(action) {
+  const res = await fetch(`${GAS_URL}?action=${action}`);
+  return res.json();
+}
+
+// ===== Cache (in-memory) =====
+let _cache = {
+  submissions: null,
+  confirmed: null,
+  settings: null,
+  memo: null
+};
+
+async function loadAll() {
+  showLoading(true);
+  try {
+    const [s, c, st, m] = await Promise.all([
+      gasGet('getSubmissions'),
+      gasGet('getConfirmed'),
+      gasGet('getSettings'),
+      gasGet('getMemo')
+    ]);
+    _cache.submissions = s.submissions || [];
+    _cache.confirmed = c.confirmed || {};
+    _cache.settings = st;
+    _cache.memo = m.memo || '';
+  } catch(e) {
+    alert('データの読み込みに失敗しました。通信状況を確認してください。');
+  }
+  showLoading(false);
+}
+
+async function loadSettings() {
+  if (_cache.settings) return;
+  const st = await gasGet('getSettings');
+  _cache.settings = st;
+}
+
+function showLoading(show) {
+  let el = document.getElementById('loadingOverlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loadingOverlay';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(26,22,18,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;';
+    el.innerHTML = '<div style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite"></div><div style="font-size:12px;color:var(--text-muted)">読み込み中...</div>';
+    if (!document.querySelector('#spinStyle')) {
+      const st = document.createElement('style');
+      st.id = 'spinStyle';
+      st.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(st);
+    }
+    document.body.appendChild(el);
+  }
+  el.style.display = show ? 'flex' : 'none';
+}
+
+// ===== Storage API (now async via GAS) =====
+const getSubmissions = () => _cache.submissions || [];
+const getConfirmed = () => _cache.confirmed || {};
+const getShiftMemoVal = () => _cache.memo || '';
+const getStaff = () => (_cache.settings && _cache.settings.staff) || ['K','A','B','C','D','E','F','G'];
+const getSpecialHours = () => (_cache.settings && _cache.settings.specialHours) || [];
+const getClosedDays = () => (_cache.settings && _cache.settings.closedDays) || [];
+
+async function saveSubmissions(subs) { _cache.submissions = subs; }
+async function addSubmission(sub) {
+  showLoading(true);
+  await gasPost({action:'saveSubmission', ...sub});
+  const s = await gasGet('getSubmissions');
+  _cache.submissions = s.submissions || [];
+  showLoading(false);
+}
+async function removeSubmission(name, periodKey) {
+  showLoading(true);
+  await gasPost({action:'deleteSubmission', name, periodKey});
+  const s = await gasGet('getSubmissions');
+  _cache.submissions = s.submissions || [];
+  showLoading(false);
+}
+async function saveConfirmedData(periodKey, confirmed) {
+  _cache.confirmed[periodKey] = confirmed;
+  await gasPost({action:'saveConfirmed', periodKey, confirmed});
+}
+async function saveShiftMemoVal(memo) {
+  _cache.memo = memo;
+  await gasPost({action:'saveMemo', memo});
+}
+async function saveStaff(staff) {
+  if (!_cache.settings) _cache.settings = {};
+  _cache.settings.staff = staff;
+  await gasPost({action:'saveSettings', staff});
+}
+async function saveSpecialHours(arr) {
+  if (!_cache.settings) _cache.settings = {};
+  _cache.settings.specialHours = arr;
+  await gasPost({action:'saveSettings', specialHours: arr});
+}
+async function saveClosedDays(arr) {
+  if (!_cache.settings) _cache.settings = {};
+  _cache.settings.closedDays = arr;
+  await gasPost({action:'saveSettings', closedDays: arr});
+}
 
 // ===== State =====
 let selectedName = '';
@@ -417,12 +509,13 @@ function getDatesInPeriod(p) {
 }
 
 // ===== Init =====
-function init() {
+async function init() {
   currentPeriod = getCurrentPeriod();
   document.getElementById('pbValue').textContent = currentPeriod.label;
   document.getElementById('pbDeadline').textContent = currentPeriod.deadlineStr;
   document.getElementById('periodBadge').textContent = currentPeriod.labelShort;
   document.getElementById('lockedBanner').style.display = currentPeriod.isLocked ? '' : 'none';
+  await loadSettings();
   rebuildNameSelect();
   document.getElementById('nameSelect').value = '';
   selectedName = '';
@@ -443,12 +536,15 @@ document.getElementById('nameSelect').onchange = function() {
 };
 
 // ===== Input =====
-function startInput() {
+async function startInput() {
+  showLoading(true);
+  const s = await gasGet('getSubmissions');
+  _cache.submissions = s.submissions || [];
+  showLoading(false);
   const dates = getDatesInPeriod(currentPeriod);
   dayData = {};
   dates.forEach(d => { dayData[toDS(d)] = {unavail:false,allday:false,start:null,end:null,note:''}; });
   document.getElementById('mainTitle').textContent = `${selectedName} さんの希望`;
-  // Load existing
   const existing = getSubmissions().filter(s=>s.name===selectedName&&s.periodKey===currentPeriod.key);
   if (existing.length) {
     const latest = existing.sort((a,b)=>b.submittedAt.localeCompare(a.submittedAt))[0];
@@ -627,14 +723,13 @@ function showConfirm(){
 
 function backToMain(){showScreen('mainScreen');document.getElementById('submitBar').style.display='';}
 
-function submitData(){
-  const subs=getSubmissions(), entries=[];
+async function submitData(){
+  const entries=[];
   getDatesInPeriod(currentPeriod).forEach(d=>{
     const ds=toDS(d), e=dayData[ds];
     if(e.unavail||e.allday||e.start!==null) entries.push({date:ds,unavail:e.unavail,allday:e.allday,start:e.start,end:e.end,note:e.note});
   });
-  subs.push({id:Date.now(),name:selectedName,period:currentPeriod.label,periodKey:currentPeriod.key,submittedAt:new Date().toISOString(),entries});
-  saveSubmissions(subs);
+  await addSubmission({name:selectedName,period:currentPeriod.label,periodKey:currentPeriod.key,entries});
   showScreen('doneScreen');
 }
 
@@ -645,10 +740,10 @@ function showScreen(id){
   if(id!=='mainScreen')document.getElementById('submitBar').style.display='none';
 }
 
-function showSetup(){
+async function showSetup(){
   document.getElementById('nameSelect').value=''; selectedName='';
   document.getElementById('startBtn').disabled=true;
-  init(); showScreen('setupScreen');
+  await init(); showScreen('setupScreen');
 }
 
 // ===== Admin =====
@@ -658,16 +753,17 @@ function showAdminLogin(){
   showScreen('adminLoginScreen');
 }
 
-function checkPw(){
+async function checkPw(){
   if(document.getElementById('pwInput').value===ADMIN_PW){
     showScreen('adminScreen');
+    await loadAll();
     switchAdminTab('shift');
   } else {
     document.getElementById('pwError').style.display='block';
   }
 }
 
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbxSK0AtvUmPnUaZtbun-adswz4XKOUvgnVHFVnDtnbvWsjct49rhHdBtIJqy-q6jTil5g/exec';
+const GAS_URL = 'GAS_URL_PLACEHOLDER';
 const ADMIN_PW='1234';
 
 function switchAdminTab(tab){
@@ -844,7 +940,7 @@ function buildShiftTable(periodKey, periodData){
   wrap.appendChild(table);
 }
 
-function toggleConfirmed(periodKey,ds,name,h,td){
+async function toggleConfirmed(periodKey,ds,name,h,td){
   const confirmed=getConfirmed();
   if(!confirmed[periodKey])confirmed[periodKey]={};
   const key=`${ds}__${name}__${h}`;
@@ -855,11 +951,11 @@ function toggleConfirmed(periodKey,ds,name,h,td){
     confirmed[periodKey][key]=true;
     td.className='cell confirmed';
   }
-  saveConfirmed(confirmed);
+  await saveConfirmedData(periodKey, confirmed[periodKey]);
 }
 
-function saveShiftMemo(){
-  saveShiftMemoVal(document.getElementById('shiftMemo').value);
+async function saveShiftMemo(){
+  await saveShiftMemoVal(document.getElementById('shiftMemo').value);
 }
 
 // ===== Submissions tab =====
@@ -891,7 +987,7 @@ function renderAdminPeriod(key,val){
     const card=document.createElement('div');card.className='submission-card';
     const sd=new Date(sub.submittedAt);
     const ds2=`${sd.getMonth()+1}/${sd.getDate()} ${String(sd.getHours()).padStart(2,'0')}:${String(sd.getMinutes()).padStart(2,'0')}`;
-    card.innerHTML=`<div class="sub-header"><div class="sub-name">${sub.name}</div><div style="display:flex;gap:8px;align-items:center"><div class="sub-meta">${ds2} 提出</div><button class="delete-btn" onclick="deleteSub(${sub.id})">削除</button></div></div><div class="sub-grid" id="sg-${sub.id}"></div>`;
+    card.innerHTML=`<div class="sub-header"><div class="sub-name">${sub.name}</div><div style="display:flex;gap:8px;align-items:center"><div class="sub-meta">${ds2} 提出</div><button class="delete-btn" onclick="deleteSub('${sub.name}','${sub.periodKey}')">削除</button></div></div><div class="sub-grid" id="sg-${sub.id}"></div>`;
     content.appendChild(card);
     const grid=document.getElementById(`sg-${sub.id}`);
     sub.entries.forEach(e=>{
@@ -904,7 +1000,11 @@ function renderAdminPeriod(key,val){
   });
 }
 
-function deleteSub(id){if(!confirm('この提出を削除しますか？'))return;saveSubmissions(getSubmissions().filter(s=>s.id!==id));renderSubmissions();}
+async function deleteSub(name, periodKey){
+  if(!confirm('この提出を削除しますか？'))return;
+  await removeSubmission(name, periodKey);
+  renderSubmissions();
+}
 
 // ===== Staff =====
 function renderStaffList(){
@@ -920,22 +1020,22 @@ function renderStaffList(){
   list.appendChild(row);
 }
 
-function addStaff(){
+async function addStaff(){
   const input=document.getElementById('staffNameInput'), name=input.value.trim();
   if(!name){alert('名前を入力してください');return;}
   const staff=getStaff();
   if(staff.includes(name)){alert('同じ名前がすでに登録されています');return;}
-  staff.push(name); saveStaff(staff); input.value=''; rebuildNameSelect(); renderStaffList();
+  staff.push(name); await saveStaff(staff); input.value=''; rebuildNameSelect(); renderStaffList();
 }
 
-function deleteStaff(i){
+async function deleteStaff(i){
   const staff=getStaff();
   if(!confirm(`「${staff[i]}」を削除しますか？`))return;
-  staff.splice(i,1); saveStaff(staff); rebuildNameSelect(); renderStaffList();
+  staff.splice(i,1); await saveStaff(staff); rebuildNameSelect(); renderStaffList();
 }
 
 // ===== Special Hours =====
-function addSpecialHours(){
+async function addSpecialHours(){
   const date=document.getElementById('spDate').value;
   const hs=parseInt(document.getElementById('spHourStart').value);
   const he=parseInt(document.getElementById('spHourEnd').value);
@@ -946,7 +1046,7 @@ function addSpecialHours(){
   const existing=arr.findIndex(s=>s.date===date);
   if(existing>=0)arr.splice(existing,1);
   arr.push({id:Date.now(),date,hourStart:hs,hourEnd:he,note});
-  saveSpecialHours(arr);
+  await saveSpecialHours(arr);
   document.getElementById('spDate').value='';
   document.getElementById('spNote').value='';
   renderSpecialList();
@@ -973,21 +1073,21 @@ function editSpecial(id){
   deleteSpecial(id,true);
 }
 
-function deleteSpecial(id,silent){
+async function deleteSpecial(id,silent){
   if(!silent&&!confirm('削除しますか？'))return;
-  saveSpecialHours(getSpecialHours().filter(s=>s.id!==id));
+  await saveSpecialHours(getSpecialHours().filter(s=>s.id!==id));
   renderSpecialList();
 }
 
 // ===== Closed Days =====
-function addClosedDay(){
+async function addClosedDay(){
   const date=document.getElementById('clDate').value;
   const note=document.getElementById('clNote').value.trim();
   if(!date){alert('日付を入力してください');return;}
   const arr=getClosedDays();
   if(arr.some(c=>c.date===date)){alert('この日付はすでに登録されています');return;}
   arr.push({id:Date.now(),date,note});
-  saveClosedDays(arr);
+  await saveClosedDays(arr);
   document.getElementById('clDate').value='';
   document.getElementById('clNote').value='';
   renderClosedList();
@@ -1012,13 +1112,14 @@ function editClosed(id){
   deleteClosed(id,true);
 }
 
-function deleteClosed(id,silent){
+async function deleteClosed(id,silent){
   if(!silent&&!confirm('削除しますか？'))return;
-  saveClosedDays(getClosedDays().filter(c=>c.id!==id));
+  await saveClosedDays(getClosedDays().filter(c=>c.id!==id));
   renderClosedList();
 }
 
 // Init
+document.getElementById("startBtn").addEventListener("click", () => startInput());
 init();
 </script>
 </body>
