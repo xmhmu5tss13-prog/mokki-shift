@@ -7,13 +7,13 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
 :root{
-  --bg:#1a1612;--surface:#242018;--surface2:#2e2820;--border:#3d3528;
-  --accent:#c8975a;--accent-soft:rgba(200,151,90,0.15);--accent-glow:rgba(200,151,90,0.08);
-  --text:#e8ddd0;--text-muted:#8a7d6e;--text-dim:#5a5048;
-  --unavail:#3a2020;--unavail-border:#6b3030;
-  --avail:rgba(200,151,90,0.25);--avail-border:#c8975a;
-  --closed:#1e1e1a;--closed-text:#3a3a32;
-  --cell-empty:#1e1c18;--cell-off:#141210;--cell-wish:#c8a020;--cell-confirmed:#3a7a4a;
+  --bg:#faf7f2;--surface:#ffffff;--surface2:#f2ede4;--border:#e0d8c8;
+  --accent:#b8895a;--accent-soft:rgba(184,137,90,0.12);--accent-glow:rgba(184,137,90,0.07);
+  --text:#3a342c;--text-muted:#8a7d6e;--text-dim:#a89c8c;
+  --unavail:#fbeaea;--unavail-border:#e3b8b8;
+  --avail:rgba(184,137,90,0.18);--avail-border:#b8895a;
+  --closed:#f0ede8;--closed-text:#c4bcae;
+  --cell-empty:#f2efe9;--cell-off:#e5e0d6;--cell-wish:#e0b84a;--cell-confirmed:#5a9a72;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:14px;min-height:100vh;padding-bottom:70px;}
@@ -97,7 +97,7 @@ select:focus{outline:none;border-color:var(--accent);}
 .confirm-list{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px;}
 .confirm-item{display:flex;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;}
 .confirm-item:last-child{border-bottom:none;}
-.confirm-date{font-family:'DM Mono',monospace;font-size:13px;color:var(--text-muted);width:60px;flex-shrink:0;}
+.confirm-date{font-family:'DM Mono',monospace;font-size:13px;color:var(--text-muted);width:64px;flex-shrink:0;white-space:nowrap;}
 .confirm-val{font-size:13px;color:var(--text);flex:1;}
 .confirm-val.unavail{color:#a05a5a;}
 .confirm-note{font-size:11px;color:var(--text-muted);font-style:italic;margin-top:2px;}
@@ -184,7 +184,7 @@ select:focus{outline:none;border-color:var(--accent);}
 </head>
 <body>
 <header>
-  <div class="logo">MÖKKI</div>
+  <div class="logo" onclick="showSetup()" style="cursor:pointer">MÖKKI</div>
   <div class="period-badge" id="periodBadge">シフト希望入力</div>
 </header>
 
@@ -195,7 +195,6 @@ select:focus{outline:none;border-color:var(--accent);}
   <div class="period-banner">
     <div class="pb-label">対象期間</div>
     <div class="pb-value" id="pbValue">—</div>
-    <div class="pb-deadline" id="pbDeadline"></div>
   </div>
   <div id="lockedBanner" class="locked-banner" style="display:none">⚠️ 提出期限を過ぎたため、現在は入力できません。</div>
   <div class="section-label">名前</div>
@@ -263,6 +262,7 @@ select:focus{outline:none;border-color:var(--accent);}
     <button class="admin-nav-btn" id="navStaff" onclick="switchAdminTab('staff')">スタッフ管理</button>
     <button class="admin-nav-btn" id="navSpecial" onclick="switchAdminTab('special')">特別営業時間</button>
     <button class="admin-nav-btn" id="navClosed" onclick="switchAdminTab('closed')">定休日・休業日</button>
+    <button class="admin-nav-btn" id="navPeriod" onclick="switchAdminTab('period')">期間の調整</button>
   </div>
 
   <!-- Shift view -->
@@ -329,19 +329,66 @@ select:focus{outline:none;border-color:var(--accent);}
   <!-- Closed days -->
   <div id="tabClosed" style="display:none">
     <div class="settings-form">
-      <h3>定休日・休業日を追加</h3>
+      <h3>毎週の定休日</h3>
+      <div class="form-row" style="flex-wrap:wrap">
+        <label style="min-width:auto">曜日</label>
+        <select id="weeklyClosedSelect" style="margin-bottom:0">
+          <option value="">なし</option>
+          <option value="0">日曜日</option>
+          <option value="1">月曜日</option>
+          <option value="2">火曜日</option>
+          <option value="3">水曜日</option>
+          <option value="4">木曜日</option>
+          <option value="5">金曜日</option>
+          <option value="6">土曜日</option>
+        </select>
+      </div>
+      <p style="font-size:11px;color:var(--text-dim)">毎週その曜日が自動で定休日になります（下のイレギュラー営業で個別に解除可能）。</p>
+    </div>
+
+    <div class="settings-form">
+      <h3>イレギュラー休業日を追加（特定の1日だけ）</h3>
       <div class="form-row">
         <label>日付</label>
         <input type="date" id="clDate">
       </div>
       <div class="form-row">
         <label>メモ</label>
-        <input type="text" id="clNote" placeholder="例：定休日・年末年始">
+        <input type="text" id="clNote" placeholder="例：年末年始">
       </div>
       <button class="add-btn" onclick="addClosedDay()">＋ 追加する</button>
     </div>
-    <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px">登録した日はスタッフ画面でグレーアウト表示され入力不可になります。</p>
+
+    <div class="settings-form">
+      <h3>イレギュラー営業日を追加（定休日を特定の1日だけ解除）</h3>
+      <div class="form-row">
+        <label>日付</label>
+        <input type="date" id="reopenDate">
+      </div>
+      <button class="add-btn" onclick="addReopenDay()">＋ 営業日にする</button>
+    </div>
+
+    <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px">登録した休業日はスタッフ画面でグレーアウト表示され入力不可になります。</p>
     <div id="closedList"></div>
+  </div>
+
+  <!-- Period override -->
+  <div id="tabPeriod" style="display:none">
+    <div class="settings-form">
+      <h3>特別期間の設定（お盆など）</h3>
+      <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px">通常は16日〜翌15日で自動的に区切られますが、ここで一時的に開始日と終了日を指定すると、その期間が優先されます。終わったら「通常に戻す」を押してください。</p>
+      <div class="form-row">
+        <label>開始日</label>
+        <input type="date" id="poStart">
+      </div>
+      <div class="form-row">
+        <label>終了日</label>
+        <input type="date" id="poEnd">
+      </div>
+      <button class="add-btn" onclick="setPeriodOverride()">＋ この期間を適用する</button>
+      <button class="btn-secondary" style="margin-top:8px" onclick="clearPeriodOverride()">通常の区切りに戻す</button>
+    </div>
+    <div id="periodOverrideStatus"></div>
   </div>
 
   <button class="btn-secondary" style="max-width:200px;margin-top:16px" onclick="showSetup()">← 入力画面に戻る</button>
@@ -349,12 +396,18 @@ select:focus{outline:none;border-color:var(--accent);}
 
 <script>
 // ===== GAS API =====
+function withTimeout(promise, ms = 20000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))
+  ]);
+}
 async function gasPost(payload) {
-  const res = await fetch(GAS_URL, {method:'POST', body:JSON.stringify(payload)});
+  const res = await withTimeout(fetch(GAS_URL, {method:'POST', body:JSON.stringify(payload)}));
   return res.json();
 }
 async function gasGet(action) {
-  const res = await fetch(`${GAS_URL}?action=${action}`);
+  const res = await withTimeout(fetch(`${GAS_URL}?action=${action}`));
   return res.json();
 }
 
@@ -367,7 +420,7 @@ let _cache = {
 };
 
 async function loadAll() {
-  showLoading(true);
+  showLoading(true, '管理者データを読み込み中...');
   try {
     const [s, c, st, m] = await Promise.all([
       gasGet('getSubmissions'),
@@ -380,24 +433,36 @@ async function loadAll() {
     _cache.settings = st;
     _cache.memo = m.memo || '';
   } catch(e) {
-    alert('データの読み込みに失敗しました。通信状況を確認してください。');
+    if (e.message === 'TIMEOUT') {
+      alert('通信に時間がかかっています。電波の良い場所でもう一度お試しください。');
+    } else {
+      alert('データの読み込みに失敗しました。通信状況を確認してください。');
+    }
   }
   showLoading(false);
 }
 
 async function loadSettings() {
   if (_cache.settings) return;
-  const st = await gasGet('getSettings');
-  _cache.settings = st;
+  showLoading(true, '読み込み中...');
+  try {
+    const st = await gasGet('getSettings');
+    _cache.settings = st;
+  } catch(e) {
+    showLoading(false);
+    alert(e.message === 'TIMEOUT' ? '通信に時間がかかっています。電波の良い場所でもう一度お試しください。' : 'データの読み込みに失敗しました。通信状況を確認してください。');
+    return;
+  }
+  showLoading(false);
 }
 
-function showLoading(show) {
+function showLoading(show, message) {
   let el = document.getElementById('loadingOverlay');
   if (!el) {
     el = document.createElement('div');
     el.id = 'loadingOverlay';
-    el.style.cssText = 'position:fixed;inset:0;background:rgba(26,22,18,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;';
-    el.innerHTML = '<div style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite"></div><div style="font-size:12px;color:var(--text-muted)">読み込み中...</div>';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(250,247,242,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;';
+    el.innerHTML = '<div style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite"></div><div id="loadingMsg" style="font-size:12px;color:var(--text-muted)">読み込み中...</div>';
     if (!document.querySelector('#spinStyle')) {
       const st = document.createElement('style');
       st.id = 'spinStyle';
@@ -406,6 +471,7 @@ function showLoading(show) {
     }
     document.body.appendChild(el);
   }
+  if (message) document.getElementById('loadingMsg').textContent = message;
   el.style.display = show ? 'flex' : 'none';
 }
 
@@ -419,17 +485,33 @@ const getClosedDays = () => (_cache.settings && _cache.settings.closedDays) || [
 
 async function saveSubmissions(subs) { _cache.submissions = subs; }
 async function addSubmission(sub) {
-  showLoading(true);
-  await gasPost({action:'saveSubmission', ...sub});
-  const s = await gasGet('getSubmissions');
-  _cache.submissions = s.submissions || [];
+  showLoading(true, '送信中...');
+  try {
+    await gasPost({action:'saveSubmission', ...sub});
+    const s = await gasGet('getSubmissions');
+    _cache.submissions = s.submissions || [];
+  } catch(e) {
+    showLoading(false);
+    if (e.message === 'TIMEOUT') {
+      alert('送信に時間がかかりすぎています。電波の良い場所でもう一度お試しください。');
+    } else {
+      alert('送信に失敗しました。もう一度お試しください。');
+    }
+    throw e;
+  }
   showLoading(false);
 }
 async function removeSubmission(name, periodKey) {
-  showLoading(true);
-  await gasPost({action:'deleteSubmission', name, periodKey});
-  const s = await gasGet('getSubmissions');
-  _cache.submissions = s.submissions || [];
+  showLoading(true, '削除中...');
+  try {
+    await gasPost({action:'deleteSubmission', name, periodKey});
+    const s = await gasGet('getSubmissions');
+    _cache.submissions = s.submissions || [];
+  } catch(e) {
+    showLoading(false);
+    alert('削除に失敗しました。もう一度お試しください。');
+    throw e;
+  }
   showLoading(false);
 }
 async function saveConfirmedData(periodKey, confirmed) {
@@ -465,6 +547,28 @@ let adminCurrentPeriodKey = null;
 
 // ===== Period =====
 function getCurrentPeriod() {
+  const override = getPeriodOverride();
+  if (override && override.start && override.end) {
+    const start = new Date(override.start + 'T00:00:00');
+    const end = new Date(override.end + 'T00:00:00');
+    const now = new Date();
+    const deadline = new Date(start);
+    deadline.setDate(deadline.getDate() - 1);
+    const editDeadline = new Date(deadline);
+    editDeadline.setDate(editDeadline.getDate() + 2);
+    editDeadline.setHours(23,59,59,999);
+    const smn = start.getMonth()+1, sdd = start.getDate();
+    const emn = end.getMonth()+1, edd = end.getDate();
+    const dm = deadline.getMonth()+1, dd = deadline.getDate();
+    return {
+      start, end, deadline, editDeadline,
+      label: `${smn}月${sdd}日 〜 ${emn}月${edd}日（特別期間）`,
+      labelShort: `${smn}/${sdd}〜${emn}/${edd}`,
+      key: `${start.getFullYear()}-${String(smn).padStart(2,'0')}-${String(sdd).padStart(2,'0')}`,
+      deadlineStr: `提出期限：${dm}月${dd}日まで（${dm}月${dd+2}日まで編集可）`,
+      isLocked: now > editDeadline
+    };
+  }
   const now = new Date();
   const day = now.getDate(), year = now.getFullYear(), month = now.getMonth();
   let sm = day >= 20 ? month + 1 : month, sy = year;
@@ -488,6 +592,12 @@ function getCurrentPeriod() {
     isLocked: now > editDeadline
   };
 }
+const getPeriodOverride = () => (_cache.settings && _cache.settings.periodOverride) || null;
+async function savePeriodOverride(override) {
+  if (!_cache.settings) _cache.settings = {};
+  _cache.settings.periodOverride = override;
+  await gasPost({action:'saveSettings', periodOverride: override});
+}
 
 // ===== Date helpers =====
 const toDS = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -496,7 +606,31 @@ const getDOW = d => DOW[d.getDay()];
 const HOLIDAYS = new Set(['2025-01-01','2025-01-13','2025-02-11','2025-02-23','2025-02-24','2025-03-20','2025-04-29','2025-05-03','2025-05-04','2025-05-05','2025-05-06','2025-07-21','2025-08-11','2025-09-15','2025-09-22','2025-09-23','2025-10-13','2025-11-03','2025-11-23','2025-11-24','2025-12-23','2026-01-01','2026-01-12','2026-02-11','2026-02-23','2026-03-20','2026-04-29','2026-05-03','2026-05-04','2026-05-05','2026-05-06','2026-07-20','2026-08-11','2026-09-21','2026-09-22','2026-09-23','2026-10-12','2026-11-03','2026-11-23','2026-12-23','2027-01-01','2027-01-11','2027-02-11','2027-02-23']);
 const isHoliday = d => HOLIDAYS.has(toDS(d));
 const isSpecialDay = d => d.getDay()===0 || d.getDay()===6 || isHoliday(d);
-const isClosedDay = d => { const ds=toDS(d); return getClosedDays().some(c=>c.date===ds); };
+const isClosedDay = d => {
+  const ds=toDS(d);
+  const closed = getClosedDays();
+  if (closed.some(c=>c.date===ds)) return true;
+  const weeklyOff = getWeeklyClosedDays();
+  if (weeklyOff.includes(d.getDay())) {
+    // Check if this specific date has been re-opened (override)
+    const reopened = getReopenedDays();
+    if (reopened.includes(ds)) return false;
+    return true;
+  }
+  return false;
+};
+const getWeeklyClosedDays = () => (_cache.settings && _cache.settings.weeklyClosedDays) ?? [4];
+const getReopenedDays = () => (_cache.settings && _cache.settings.reopenedDays) || [];
+async function saveWeeklyClosedDays(arr) {
+  if (!_cache.settings) _cache.settings = {};
+  _cache.settings.weeklyClosedDays = arr;
+  await gasPost({action:'saveSettings', weeklyClosedDays: arr});
+}
+async function saveReopenedDays(arr) {
+  if (!_cache.settings) _cache.settings = {};
+  _cache.settings.reopenedDays = arr;
+  await gasPost({action:'saveSettings', reopenedDays: arr});
+}
 function getHourRange(d) {
   const ds = toDS(d);
   for (const sp of getSpecialHours()) if (sp.date===ds) return {start:sp.hourStart,end:sp.hourEnd,isSpecial:true,note:sp.note};
@@ -512,7 +646,6 @@ function getDatesInPeriod(p) {
 async function init() {
   currentPeriod = getCurrentPeriod();
   document.getElementById('pbValue').textContent = currentPeriod.label;
-  document.getElementById('pbDeadline').textContent = currentPeriod.deadlineStr;
   document.getElementById('periodBadge').textContent = currentPeriod.labelShort;
   document.getElementById('lockedBanner').style.display = currentPeriod.isLocked ? '' : 'none';
   await loadSettings();
@@ -537,9 +670,15 @@ document.getElementById('nameSelect').onchange = function() {
 
 // ===== Input =====
 async function startInput() {
-  showLoading(true);
-  const s = await gasGet('getSubmissions');
-  _cache.submissions = s.submissions || [];
+  showLoading(true, '読み込み中...');
+  try {
+    const s = await gasGet('getSubmissions');
+    _cache.submissions = s.submissions || [];
+  } catch(e) {
+    showLoading(false);
+    alert(e.message === 'TIMEOUT' ? '通信に時間がかかっています。電波の良い場所でもう一度お試しください。' : 'データの取得に失敗しました。もう一度お試しください。');
+    return;
+  }
   showLoading(false);
   const dates = getDatesInPeriod(currentPeriod);
   dayData = {};
@@ -729,7 +868,11 @@ async function submitData(){
     const ds=toDS(d), e=dayData[ds];
     if(e.unavail||e.allday||e.start!==null) entries.push({date:ds,unavail:e.unavail,allday:e.allday,start:e.start,end:e.end,note:e.note});
   });
-  await addSubmission({name:selectedName,period:currentPeriod.label,periodKey:currentPeriod.key,entries});
+  try {
+    await addSubmission({name:selectedName,period:currentPeriod.label,periodKey:currentPeriod.key,entries});
+  } catch(e) {
+    return;
+  }
   showScreen('doneScreen');
 }
 
@@ -763,11 +906,11 @@ async function checkPw(){
   }
 }
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxSK0AtvUmPnUaZtbun-adswz4XKOUvgnVHFVnDtnbvWsjct49rhHdBtIJqy-q6jTil5g/exec';
+const GAS_URL = 'GAS_URL_PLACEHOLDER';
 const ADMIN_PW='1234';
 
 function switchAdminTab(tab){
-  ['shift','submissions','staff','special','closed'].forEach(t=>{
+  ['shift','submissions','staff','special','closed','period'].forEach(t=>{
     document.getElementById('nav'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('active',t===tab);
     document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).style.display=t===tab?'':'none';
   });
@@ -776,6 +919,7 @@ function switchAdminTab(tab){
   if(tab==='staff')renderStaffList();
   if(tab==='special')renderSpecialList();
   if(tab==='closed')renderClosedList();
+  if(tab==='period')renderPeriodOverride();
 }
 
 // ===== Shift View =====
@@ -800,15 +944,22 @@ function renderShiftView(){
 
 function buildShiftTable(periodKey, periodData){
   const wrap=document.getElementById('shiftTableWrap');
-  // Parse period key to get dates
-  const [sy,sm]=periodKey.split('-').map(Number);
-  const start=new Date(sy,sm-1,16);
-  let em=sm, ey=sy;
-  if(em>11){em=0;ey++;}else{em=sm;}// next month
-  // Actually compute end date
-  let endM=sm, endY=sy; // start month
-  endM+=1; if(endM>12){endM=1;endY++;}
-  const end=new Date(endY,endM-1,15);
+  // Derive start/end from any submission's stored dates (most reliable, works for override periods too)
+  const allDates = [];
+  periodData.subs.forEach(s => s.entries.forEach(e => allDates.push(e.date)));
+  let start, end;
+  if (allDates.length) {
+    allDates.sort();
+    start = new Date(allDates[0]+'T00:00:00');
+    end = new Date(allDates[allDates.length-1]+'T00:00:00');
+  } else {
+    // Fallback: parse key as YYYY-MM-DD start, assume 1 month
+    const parts = periodKey.split('-').map(Number);
+    start = new Date(parts[0], parts[1]-1, parts[2]);
+    end = new Date(start);
+    end.setMonth(end.getMonth()+1);
+    end.setDate(end.getDate()-1);
+  }
 
   const dates=[];
   const cur=new Date(start);
@@ -873,7 +1024,6 @@ function buildShiftTable(periodKey, periodData){
       const e=lookup[s]?.[ds];
       return !e || !e.unavail;
     });
-    if(!activeStaff.length)return;
 
     // Date header row
     const dateRow=document.createElement('tr');
@@ -883,8 +1033,10 @@ function buildShiftTable(periodKey, periodData){
     let dateColor=isSat?'#5a8ab0':(isSun||isHol)?'#a05a5a':'var(--text)';
     tdDate.innerHTML=`<span style="color:${dateColor}">${d.getMonth()+1}月${d.getDate()}日 (${dow}${isHol?'・祝':''})</span>`;
     if(hr.isSpecial)tdDate.innerHTML+=`<span style="font-size:10px;color:#8ab05a;margin-left:8px">⚡ ${hr.start}〜${hr.end}時</span>`;
+    if(!activeStaff.length)tdDate.innerHTML+=`<span style="font-size:10px;color:var(--text-dim);margin-left:8px">希望者なし</span>`;
     dateRow.appendChild(tdDate);
     tbody.appendChild(dateRow);
+    if(!activeStaff.length)return;
 
     // Staff rows
     activeStaff.forEach(name=>{
@@ -1024,8 +1176,7 @@ async function addStaff(){
   const input=document.getElementById('staffNameInput'), name=input.value.trim();
   if(!name){alert('名前を入力してください');return;}
   const staff=getStaff();
-console.log('現在のスタッフ一覧:', staff);
-  if (staff.includes(name)) { alert('同じ名前がすでに登録されています:' + JSON.stringify(staff)); return; }
+  if(staff.includes(name)){alert('同じ名前がすでに登録されています');return;}
   staff.push(name); await saveStaff(staff); input.value=''; rebuildNameSelect(); renderStaffList();
 }
 
@@ -1080,6 +1231,66 @@ async function deleteSpecial(id,silent){
   renderSpecialList();
 }
 
+// ===== Period Override =====
+function renderPeriodOverride(){
+  const status = document.getElementById('periodOverrideStatus');
+  const ov = getPeriodOverride();
+  if (ov && ov.start && ov.end) {
+    const s = new Date(ov.start+'T00:00:00'), e = new Date(ov.end+'T00:00:00');
+    status.innerHTML = `<div class="setting-item"><div class="setting-item-info"><div class="setting-item-main">現在適用中</div><div class="setting-item-sub green">${s.getMonth()+1}/${s.getDate()} 〜 ${e.getMonth()+1}/${e.getDate()}</div></div></div>`;
+  } else {
+    status.innerHTML = `<div class="empty-state">特別期間は設定されていません（通常の16日区切りです）</div>`;
+  }
+}
+
+async function setPeriodOverride(){
+  const start=document.getElementById('poStart').value;
+  const end=document.getElementById('poEnd').value;
+  if(!start||!end){alert('開始日と終了日を入力してください');return;}
+  if(end<start){alert('終了日は開始日より後にしてください');return;}
+  if(!confirm(`${start} 〜 ${end} を対象期間にします。よろしいですか？`))return;
+  await savePeriodOverride({start, end});
+  document.getElementById('poStart').value='';
+  document.getElementById('poEnd').value='';
+  renderPeriodOverride();
+}
+
+async function clearPeriodOverride(){
+  if(!confirm('通常の16日区切りに戻しますか？'))return;
+  await savePeriodOverride(null);
+  renderPeriodOverride();
+}
+
+// ===== Weekly Closed Day =====
+function renderWeeklyClosedSelect(){
+  const sel = document.getElementById('weeklyClosedSelect');
+  const cur = getWeeklyClosedDays();
+  sel.value = cur.length ? cur[0] : '';
+}
+document.getElementById('weeklyClosedSelect').onchange = async function(){
+  const v = this.value;
+  await saveWeeklyClosedDays(v === '' ? [] : [parseInt(v)]);
+  renderClosedList();
+};
+
+// ===== Reopen Days (override weekly closed) =====
+async function addReopenDay(){
+  const date=document.getElementById('reopenDate').value;
+  if(!date){alert('日付を入力してください');return;}
+  const arr=getReopenedDays();
+  if(arr.includes(date)){alert('この日付はすでに営業日として登録されています');return;}
+  arr.push(date);
+  await saveReopenedDays(arr);
+  document.getElementById('reopenDate').value='';
+  renderClosedList();
+}
+
+async function deleteReopenDay(date){
+  if(!confirm('削除しますか？'))return;
+  await saveReopenedDays(getReopenedDays().filter(d=>d!==date));
+  renderClosedList();
+}
+
 // ===== Closed Days =====
 async function addClosedDay(){
   const date=document.getElementById('clDate').value;
@@ -1095,13 +1306,20 @@ async function addClosedDay(){
 }
 
 function renderClosedList(){
-  const list=document.getElementById('closedList'), arr=getClosedDays();
+  renderWeeklyClosedSelect();
+  const list=document.getElementById('closedList'), arr=getClosedDays(), reopened=getReopenedDays();
   list.innerHTML='';
-  if(!arr.length){list.innerHTML='<div class="empty-state">定休日・休業日の設定はありません</div>';return;}
+  if(!arr.length && !reopened.length){list.innerHTML='<div class="empty-state">個別の休業日・営業日の設定はありません</div>';return;}
   arr.sort((a,b)=>a.date.localeCompare(b.date)).forEach(cl=>{
     const item=document.createElement('div'); item.className='setting-item';
     const d=new Date(cl.date+'T00:00:00');
-    item.innerHTML=`<div class="setting-item-info"><div class="setting-item-main">${d.getMonth()+1}/${d.getDate()} (${getDOW(d)})</div><div class="setting-item-sub red">🚫 ${cl.note||'定休日'}</div></div><div class="setting-item-actions"><button class="edit-btn" onclick="editClosed(${cl.id})">編集</button><button class="delete-btn" onclick="deleteClosed(${cl.id})">削除</button></div>`;
+    item.innerHTML=`<div class="setting-item-info"><div class="setting-item-main">${d.getMonth()+1}/${d.getDate()} (${getDOW(d)})</div><div class="setting-item-sub red">🚫 ${cl.note||'休業日'}</div></div><div class="setting-item-actions"><button class="edit-btn" onclick="editClosed(${cl.id})">編集</button><button class="delete-btn" onclick="deleteClosed(${cl.id})">削除</button></div>`;
+    list.appendChild(item);
+  });
+  reopened.sort().forEach(date=>{
+    const item=document.createElement('div'); item.className='setting-item';
+    const d=new Date(date+'T00:00:00');
+    item.innerHTML=`<div class="setting-item-info"><div class="setting-item-main">${d.getMonth()+1}/${d.getDate()} (${getDOW(d)})</div><div class="setting-item-sub green">✓ 営業日（定休日を解除）</div></div><div class="setting-item-actions"><button class="delete-btn" onclick="deleteReopenDay('${date}')">削除</button></div>`;
     list.appendChild(item);
   });
 }
