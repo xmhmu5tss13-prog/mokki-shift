@@ -1024,7 +1024,8 @@ async function addStaff(){
   const input=document.getElementById('staffNameInput'), name=input.value.trim();
   if(!name){alert('名前を入力してください');return;}
   const staff=getStaff();
-  if(staff.includes(name)){alert('同じ名前がすでに登録されています');return;}
+console.log('現在のスタッフ一覧:', staff);
+  if (staff.includes(name)) { alert('同じ名前がすでに登録されています:' + JSON.stringify(staff)); return; }
   staff.push(name); await saveStaff(staff); input.value=''; rebuildNameSelect(); renderStaffList();
 }
 
